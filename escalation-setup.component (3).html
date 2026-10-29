@@ -1,0 +1,414 @@
+<div class="page-wrapper">
+  <div class="page-content">
+
+    <div class="row align-items-center">
+      <div class="crumbs col-6">
+        <ul>
+          <li><div class="non-link"><span>Email setup</span></div></li>
+          <li><div class="non-link"><span>Escalation Email</span></div></li>
+        </ul>
+      </div>
+      <div class="col-6 esc-topbar">
+        <button type="button" class="esc-ghost" (click)="setView(activeView === 'config' ? 'overview' : 'config')">
+          @if (activeView === 'config') {
+            <i class="fa fa-list"></i> All Escalations
+          } @else {
+            <i class="fa fa-arrow-left"></i> Back to Setup
+          }
+        </button>
+      </div>
+    </div>
+
+    @if (activeView === 'config') {
+      <form [formGroup]="EscalationForm" class="esc-root">
+        <div class="esc-card">
+
+          <section class="esc-top">
+            <div class="esc-info">
+              <i class="fa fa-info-circle"></i>
+              <span><b>Info:</b> {{ infoText }}</span>
+            </div>
+
+            @if (showForm) {
+              <div class="esc-status-box">
+                <div>
+                  <span class="esc-status-title">Escalation Status</span>
+                  <span class="esc-status-value" [class.on]="isStatusOn">
+                    <span class="esc-dot"></span>{{ isStatusOn ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                <label class="esc-switch">
+                  <input type="checkbox" [formControlName]="statusControlName" (change)="onStatusToggle($event)">
+                  <span class="esc-slider"></span>
+                </label>
+              </div>
+            }
+          </section>
+
+          <section class="esc-section">
+            <div class="esc-section-head">
+              <label class="esc-label">What do you want to monitor? <span class="esc-req">*</span></label>
+              <span class="esc-muted">Select one escalation type</span>
+            </div>
+            <div class="esc-types">
+              @for (t of typeCards; track t.value) {
+                <button type="button" class="esc-type" [class.active]="selectedescalation === t.value"
+                  (click)="onChangeEscalation({ value: t.value })">
+                  @if (selectedescalation === t.value) { <span class="esc-type-check"><i class="fa fa-check"></i></span> }
+                  <span class="esc-type-icon" [ngClass]="t.tone"><i [class]="t.icon"></i></span>
+                  <span class="esc-type-text">
+                    <b>{{ t.title }}</b>
+                    <small>{{ t.desc }}</small>
+                  </span>
+                </button>
+              }
+            </div>
+          </section>
+
+          @if (isanalyst || iscase) {
+            <section class="esc-section">
+              <label class="esc-label">Which level? <span class="esc-req">*</span></label>
+              <div class="esc-seg">
+                <button type="button" [class.active]="escalationselection === 1" (click)="setLevel(1)">
+                  Level 1 <small>Default tier</small>
+                </button>
+                <button type="button" [class.active]="escalationselection === 2" (click)="setLevel(2)">
+                  Level 2 <small>Secondary fallback</small>
+                </button>
+              </div>
+              <p class="esc-help"><i class="fa fa-info-circle"></i> Each level has its own limit. Level 2 usually has a longer limit than Level 1, so it is sent later if the problem continues.</p>
+            </section>
+          }
+
+          @if (isdatasource) {
+            <section class="esc-section">
+              <div class="esc-grid">
+                <div class="esc-field esc-col-6">
+                  <label class="esc-label">Model <span class="esc-req">*</span></label>
+                  <dx-select-box [dataSource]="datasourceModels" [value]="selecteddatasourcemodel" valueExpr="value"
+                    displayExpr="Name" placeholder="Select Model..."
+                    (onValueChanged)="onChangeDatasourceModel($event)"></dx-select-box>
+                </div>
+                @if (selecteddatasourcemodel) {
+                  <div class="esc-field esc-col-6">
+                    <label class="esc-label">Datasource <span class="esc-req">*</span></label>
+                    <dx-select-box [dataSource]="modelPortfolios" [value]="selecteddatasource" valueExpr="value"
+                      title="Select Datasource" displayExpr="Name" placeholder="Select Datasource..."
+                      (onValueChanged)="onChangeDatasource($event)"></dx-select-box>
+                  </div>
+                }
+              </div>
+
+              @if (isdatasourceesctype) {
+                <div class="esc-trigger-row">
+                  <label class="esc-label">Escalation trigger <span class="esc-req">*</span></label>
+                  <div class="esc-seg">
+                    @for (d of datasourceescalationtype; track d.value) {
+                      <button type="button" [class.active]="selecteddatasourceesctype === d.value" (click)="setDatasourceTrigger(d.value)">{{ d.Name }}</button>
+                    }
+                  </div>
+                </div>
+              }
+            </section>
+          }
+
+          @if (!showForm && isdatasource) {
+            <div class="esc-empty">Select a model, a datasource and a trigger to continue.</div>
+          }
+          @if (!showForm && (isanalyst || iscase)) {
+            <div class="esc-empty">Select a level to view or create its escalation.</div>
+          }
+          @if (!selectedescalation) {
+            <div class="esc-empty">Select an escalation type above to get started.</div>
+          }
+
+          @if (showForm) {
+            @if (!isStatusOn) {
+              <div class="esc-alert-off">
+                <i class="fa fa-ban"></i> This escalation is Inactive. No emails will be sent until you turn it on.
+              </div>
+            }
+
+            @if (!showgrid) {
+              <div class="esc-notice">
+                <i class="fa fa-info-circle"></i>
+                Nothing is configured here yet. A sample email is filled in for you. Change it if needed and click <b>Add Escalation</b>.
+              </div>
+            }
+
+            <div [class.esc-dim]="!isStatusOn">
+
+              <section class="esc-section">
+                <div class="esc-section-head">
+                  <label class="esc-label">When should this email be sent? <span class="esc-req">*</span></label>
+                  <span class="esc-muted">{{ triggerCaption }}</span>
+                </div>
+
+                @if (isanalystlevel || iscaselevel || isnosuspect) {
+                  <div class="esc-grid">
+                    <div class="esc-input-card esc-col-6">
+                      <div class="esc-input-head">
+                        <h4><span class="esc-dot peak"></span>{{ peakLabel }}</h4>
+                        <small>Valid: {{ limitFor('peak').min }} - {{ limitFor('peak').max }}</small>
+                      </div>
+                      <div class="esc-input-wrap">
+                        <input type="number" class="form-control" formControlName="peak"
+                          [min]="limitFor('peak').min" (input)="validateRange($event, 'peak')"
+                          [placeholder]="limitFor('peak').min">
+                        <span class="esc-unit">{{ limitFor('peak').unit }}</span>
+                      </div>
+                      <p class="esc-help-small">{{ peakHelp }}</p>
+                    </div>
+
+                    <div class="esc-input-card esc-col-6">
+                      <div class="esc-input-head">
+                        <h4><span class="esc-dot off"></span>{{ offPeakLabel }}</h4>
+                        <small>Valid: {{ limitFor('offpeak').min }} - {{ limitFor('offpeak').max }}</small>
+                      </div>
+                      <div class="esc-input-wrap">
+                        <input type="number" class="form-control" formControlName="offpeak"
+                          [min]="limitFor('offpeak').min" (input)="validateRange($event, 'offpeak')"
+                          [placeholder]="limitFor('offpeak').min">
+                        <span class="esc-unit">{{ limitFor('offpeak').unit }}</span>
+                      </div>
+                      <p class="esc-help-small">{{ offPeakHelp }}</p>
+                    </div>
+                  </div>
+                }
+
+                @if (isdelayduration) {
+                  <div class="esc-grid">
+                    <div class="esc-input-card esc-col-6">
+                      <div class="esc-input-head">
+                        <h4><span class="esc-dot peak"></span>Delay Duration</h4>
+                        <small>Valid: {{ limitFor('delay').min }} - {{ limitFor('delay').max }}</small>
+                      </div>
+                      <div class="esc-input-wrap">
+                        <input type="number" class="form-control" formControlName="delay"
+                          [min]="limitFor('delay').min" (input)="validateRange($event, 'delay')" placeholder="30">
+                        <span class="esc-unit">min</span>
+                      </div>
+                      <p class="esc-help-small">Sends the email when a case stays delayed for this many minutes.</p>
+                    </div>
+                  </div>
+                }
+              </section>
+
+              <section class="esc-section">
+                <div class="esc-section-head">
+                  <label class="esc-label">Email notification template <span class="esc-req">*</span></label>
+                  <button type="button" class="esc-ghost esc-small" (click)="openPreview()">
+                    <i class="fa fa-eye"></i> Preview Email
+                  </button>
+                </div>
+
+                <div class="esc-field esc-mb">
+                  <label class="esc-sublabel">Email subject <span class="esc-req">*</span></label>
+                  <input type="text" class="form-control" formControlName="emailsubject" placeholder="Enter Email Subject...">
+                </div>
+
+                <div class="esc-tags">
+                  <div class="esc-tags-head">
+                    <span class="esc-tags-title"><i class="fa fa-tags"></i> Insert dynamic tags</span>
+                    <span class="esc-tags-text">Tags are placeholders. When the email is sent, each tag is replaced with real data (for example an analyst name tag becomes "Ali Khan"). Click a tag to add it where your cursor is. Hover a tag to see what it becomes. Use <b>Preview Email</b> to see sample values.</span>
+                    @if (usingDefaultTags) {
+                      <span class="esc-tags-note"><i class="fa fa-exclamation-triangle"></i> These are suggested tags because none are saved for this escalation yet. Confirm with the backend team that they are replaced when emails are sent.</span>
+                    }
+                  </div>
+                  <div class="esc-chips">
+                    @for (v of variablesoption; track v.text) {
+                      <button type="button" class="esc-chip" [title]="describeTag(v.text)" (click)="insertVariable(v.text)">
+                        + {{ v.text.trim() }}
+                      </button>
+                    } @empty {
+                      <span class="esc-muted">No tags are available for this escalation.</span>
+                    }
+
+                    @if (!addingTag) {
+                      <button type="button" class="esc-chip esc-chip-add" (click)="startAddTag()">
+                        <i class="fa fa-plus"></i> Add
+                      </button>
+                    } @else {
+                      <span class="esc-addtag">
+                        <input type="text" class="form-control" [(ngModel)]="newTag" [ngModelOptions]="{standalone: true}"
+                          placeholder="Tag name, no spaces"
+                          (keydown.enter)="confirmAddTag(); $event.preventDefault()" (keydown.escape)="cancelAddTag()">
+                        <button type="button" class="esc-ghost esc-small" (click)="confirmAddTag()">Add</button>
+                        <button type="button" class="esc-ghost esc-small" (click)="cancelAddTag()">Cancel</button>
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <div class="esc-editor">
+                  <dx-html-editor [(value)]="emailbodycontent" [height]="340" (onInitialized)="onEditorInit($event)">
+                    <dxo-toolbar [multiline]="true">
+                      <dxi-item name="undo"></dxi-item>
+                      <dxi-item name="redo"></dxi-item>
+                      <dxi-item name="separator"></dxi-item>
+                      <dxi-item name="size"
+                        [acceptedValues]="['8pt', '10pt', '12pt', '14pt', '18pt', '24pt', '36pt']">
+                      </dxi-item>
+                      <dxi-item name="font"
+                        [acceptedValues]="['Arial', 'Courier New', 'Georgia', 'Impact', 'Lucida Console', 'Tahoma', 'Times New Roman', 'Verdana']">
+                      </dxi-item>
+                      <dxi-item name="header" [acceptedValues]="[false, 1, 2, 3, 4, 5]"></dxi-item>
+                      <dxi-item name="separator"></dxi-item>
+                      <dxi-item name="bold"></dxi-item>
+                      <dxi-item name="italic"></dxi-item>
+                      <dxi-item name="strike"></dxi-item>
+                      <dxi-item name="underline"></dxi-item>
+                      <dxi-item name="color"></dxi-item>
+                      <dxi-item name="background"></dxi-item>
+                      <dxi-item name="separator"></dxi-item>
+                      <dxi-item name="alignLeft"></dxi-item>
+                      <dxi-item name="alignCenter"></dxi-item>
+                      <dxi-item name="alignRight"></dxi-item>
+                      <dxi-item name="alignJustify"></dxi-item>
+                      <dxi-item name="separator"></dxi-item>
+                      <dxi-item name="orderedList"></dxi-item>
+                      <dxi-item name="bulletList"></dxi-item>
+                      <dxi-item name="blockquote"></dxi-item>
+                      <dxi-item name="link"></dxi-item>
+                      <dxi-item name="separator"></dxi-item>
+                      <dxi-item name="insertTable"></dxi-item>
+                      <dxi-item name="insertRowAbove"></dxi-item>
+                      <dxi-item name="insertRowBelow"></dxi-item>
+                      <dxi-item name="deleteRow"></dxi-item>
+                      <dxi-item name="insertColumnLeft"></dxi-item>
+                      <dxi-item name="insertColumnRight"></dxi-item>
+                      <dxi-item name="deleteColumn"></dxi-item>
+                      <dxi-item name="deleteTable"></dxi-item>
+                      <dxi-item name="cellProperties"></dxi-item>
+                      <dxi-item name="tableProperties"></dxi-item>
+                      <dxi-item name="separator"></dxi-item>
+                      <dxi-item name="clear"></dxi-item>
+                    </dxo-toolbar>
+                    <dxo-table-context-menu [enabled]="true"></dxo-table-context-menu>
+                    <dxo-table-resizing [enabled]="true"></dxo-table-resizing>
+                    <dxo-media-resizing [enabled]="true"></dxo-media-resizing>
+                  </dx-html-editor>
+                </div>
+              </section>
+
+              <section class="esc-section">
+                <div class="esc-section-head">
+                  <div>
+                    <label class="esc-label">{{ recipientTitle }}</label>
+                    <span class="esc-muted esc-block">
+                      @if (showgrid) { {{ recipientCount }} recipient{{ recipientCount === 1 ? '' : 's' }} will receive this email }
+                      @else { Add recipients after saving this escalation }
+                    </span>
+                  </div>
+                </div>
+
+                @if (showgrid) {
+                  <dx-data-grid id="gridContainer" [dataSource]="reportdata" keyExpr="emailID" (onRowInserted)="onCreate($event)"
+                    [focusedRowEnabled]="true" [rowAlternationEnabled]="true" [allowColumnReordering]="true" (onRowUpdating)="onRowUpdating($event)"
+                    [allowColumnResizing]="true" [showBorders]="true" (onRowRemoved)="onDelete($event)">
+                    <dxo-search-panel [visible]="true" [width]="260" placeholder="Find Added Email Address..."></dxo-search-panel>
+                    <dxo-filter-row [visible]="true"></dxo-filter-row>
+                    <dxo-header-filter [visible]="true"></dxo-header-filter>
+                    <dxo-paging [pageSize]="10"></dxo-paging>
+                    <dxo-pager [showPageSizeSelector]="true" [allowedPageSizes]="[5,10,15,20]" [showInfo]="true"></dxo-pager>
+                    <dxo-editing mode="row" [allowUpdating]="!isshowhide" [allowDeleting]="!isshowhide" [allowAdding]="!ishowhide" [useIcons]="true"></dxo-editing>
+                    <dxi-column dataField="email" caption="Email Address">
+                      <dxi-validation-rule type="required" message="Email is Required"></dxi-validation-rule>
+                      <dxi-validation-rule type="email" message="Email is Invalid"></dxi-validation-rule>
+                    </dxi-column>
+                    <dxi-column dataField="status" [caption]="recipientStatusCaption">
+                      <dxo-lookup [dataSource]="statusArray" valueExpr="value" displayExpr="Name"></dxo-lookup>
+                    </dxi-column>
+                  </dx-data-grid>
+                } @else {
+                  <div class="esc-empty">No recipients yet. Click <b>Add Escalation</b> first, then add email addresses here.</div>
+                }
+              </section>
+            </div>
+
+            <footer class="esc-footer">
+              <span class="esc-muted">
+                <i class="fa fa-lock"></i> Changes are saved with your username and time.
+                @if (!EscalationForm.valid) { <span class="esc-warn"> Email subject is required.</span> }
+              </span>
+              <div class="esc-footer-buttons">
+                <button type="button" class="esc-ghost" (click)="cancel()">Cancel</button>
+                @if (!showgrid) {
+                  <button [disabled]="!EscalationForm.valid" type="button" (click)="AddEscalation()" class="btn btn-primary">Add Escalation</button>
+                } @else {
+                  <button [disabled]="!EscalationForm.valid" type="button" (click)="UpdateEscalation()" class="btn btn-primary">Update Escalation</button>
+                }
+              </div>
+            </footer>
+          }
+        </div>
+
+        <dx-popup [(visible)]="leaveVisible" title="Unsaved changes" [width]="440" height="auto"
+          [showCloseButton]="false" [hideOnOutsideClick]="false">
+          <div *dxTemplate="let data of 'content'" class="esc-leave">
+            <p><i class="fa fa-exclamation-triangle"></i> You have changes that are not saved. If you leave now, your changes will be lost.</p>
+            <div class="esc-leave-buttons">
+              <button type="button" class="esc-ghost" (click)="leaveDiscard()">Leave without saving</button>
+              <button type="button" class="btn btn-primary" (click)="leaveStay()">Stay and save</button>
+            </div>
+          </div>
+        </dx-popup>
+
+        <dx-popup [(visible)]="previewVisible" title="Email Preview" [width]="760" [height]="580"
+          [showCloseButton]="true" [hideOnOutsideClick]="true" [dragEnabled]="false">
+          <div *dxTemplate="let data of 'content'" class="esc-preview">
+            <div class="esc-preview-subject"><span class="esc-muted">Subject:</span> <b>{{ previewSubject || '(no subject)' }}</b></div>
+            <div class="esc-preview-note"><i class="fa fa-info-circle"></i> Highlighted text shows sample values in place of tags.</div>
+            <div class="esc-preview-body" [innerHTML]="previewHtml"></div>
+          </div>
+        </dx-popup>
+      </form>
+    }
+
+    @if (activeView === 'overview') {
+      <div class="esc-card">
+        <div class="esc-section-head">
+          <div>
+            <label class="esc-label">All Escalations</label>
+            <span class="esc-muted esc-block">Every configured escalation in one place</span>
+          </div>
+        </div>
+
+        @if (overviewLoading) {
+          <div class="esc-empty">Loading...</div>
+        } @else if (!overviewRows.length) {
+          <div class="esc-empty">No escalation is configured yet.</div>
+        } @else {
+          <div class="esc-table-wrap">
+            <table class="esc-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Level / Trigger</th>
+                  <th>Condition</th>
+                  <th>Recipients</th>
+                  <th>Status</th>
+                  <th class="esc-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of overviewRows; track row.escalationID) {
+                  <tr>
+                    <td><b>{{ row.typeLabel }}</b></td>
+                    <td><span class="esc-pill">{{ row.levelLabel }}</span></td>
+                    <td>{{ row.condition }}</td>
+                    <td>{{ row.recipients }}</td>
+                    <td><span class="esc-badge-status" [class.on]="row.active">{{ row.active ? 'Active' : 'Inactive' }}</span></td>
+                    <td class="esc-right"><button type="button" class="esc-link" (click)="editRow(row)">Edit</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+  </div>
+</div>
+<br><br>
